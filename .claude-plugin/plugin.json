@@ -1,0 +1,8 @@
+{
+  "name": "routing-setup",
+  "version": "1.0.0",
+  "description": "Scaffold a Plan-Execute routing Agent from scratch. Collects requirements, generates Agent skeleton with 9 architecture constraints, builds each skill with SKILL.md + tools + tests.",
+  "author": { "name": "bytedance" },
+  "license": "MIT",
+  "keywords": ["routing", "agent-scaffold", "skill-routing", "planner", "llm"]
+}
