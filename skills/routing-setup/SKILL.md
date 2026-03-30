@@ -28,17 +28,24 @@ trigger: 用户想从零开始构建一个 plan-execute 路由 Agent
 
 ### Step 2 — 定义 Skill 清单
 
-使用 **Baseline Intent 表格** 格式，与用户共同填写每个 skill：
+逐个 skill 引导用户定义意图：
 
-```
+1. **逐 skill 提问**：对每个 skill 问用户 —— "用户什么时候应该走这个 skill？用一句话描述核心意图"
+2. **AI 生成草稿**：根据用户的一句话回答，AI 推断并生成：
+   - 3-5 个"必须通过场景"（用户最典型的输入）
+   - 2-3 个"不该走这里"场景（明确不属于该 skill 的输入）
+   - 可能的模糊区域和竞争 skill
+3. **呈现 Baseline Intent 表格**：将所有 skill 的草稿整理为完整表格：
+
 | Skill名称 | 一句话意图 | 类型 | 必须通过场景(3-5) | 不该走这里(2-3) | 模糊区域 | 竞争skill |
-```
 
 命名规则：
 - **Skill 名称**：小写连字符，例如 `image-generation`、`video-editing`
-- **资源类型**：使用中文，例如"图片"、"视频"、"文档"
+- **资源类型**：使用中文，例如"图片"、"视频"
 
-每个 skill 至少填写 3 个"必须通过场景"和 2 个"不该走这里"场景，这些将作为后续路由测试的种子用例。
+每个 skill 至少 3 个"必须通过场景"和 2 个"不该走这里"场景（AI 生成，用户验证确认），这些将作为后续路由测试的种子用例。
+
+> **TDD 原则**：AI 生成草稿基于用户的口头意图描述，**不读取已有的 SKILL.md description**（Iron Law：测试种子来自用户意图，不来自 description）
 
 ### Step 3 — 确认摘要
 
@@ -70,7 +77,7 @@ trigger: 用户想从零开始构建一个 plan-execute 路由 Agent
 
 ### Step 6 — 按架构约束生成代码文件
 
-逐文件生成代码，每个文件展示后等用户确认。代码必须遵循以下 **9 项架构约束**（详细说明见 `docs/routing-setup.md`）：
+AI 按以下 9 项架构约束逐文件生成代码。每个文件生成后展示给用户，用户确认或提出修改意见后 AI 调整，再继续下一个文件。代码必须遵循以下 **9 项架构约束**（详细说明见 `docs/routing-setup.md`）：
 
 1. **SkillStore 三层加载** (A1) — scan/load/read_file 渐进加载，YAML parser 用正则避免冒号 bug
 2. **Schema-only Noop Tools** (A5) — Pydantic schema + StructuredTool，区分 planner/exec tools，get_replan_tools() 过滤

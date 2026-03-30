@@ -30,11 +30,16 @@ frontmatter 必填字段：
 | `type` | `generate:image` / `generate:video` / `clarify` / `search` |
 | `allowed_actions` | 该 skill 可调用的 action 列表 |
 
-body 部分写 replan instructions，包含四个段落：
-1. **适用场景** - 什么情况下进入 replan
-2. **触发条件** - 具体的判断逻辑
-3. **执行规则** - replan 时的约束
-4. **不适用声明** - 明确不处理哪些情况（防止路由越界）
+body 部分的 replan 指令由 AI 生成草稿，用户审阅确认：
+
+1. AI 读取该 skill 的 frontmatter（name、type、allowed_actions）+ Baseline Intent 中的意图和场景
+2. AI 生成四段 replan 指令草稿：
+   - **适用场景** — 什么情况下进入该 skill 的 replan
+   - **触发条件** — 具体判断逻辑
+   - **执行规则** — replan 时的约束
+   - **不适用声明** — 明确不处理哪些情况（防路由越界）
+3. 用户审阅并修正草稿
+4. 确认后写入 SKILL.md body
 
 ### Step 2: 实现工具函数
 
@@ -66,7 +71,7 @@ curl -X POST http://localhost:8000/api/chat \
 
 ### Step 5: 自动生成 `.routing-quality/config.md`
 
-生成 Baseline Intent 表，格式：
+AI 从所有已构建的 SKILL.md frontmatter 自动提取信息，生成 Baseline Intent 表。用户只需确认表格完整性。格式：
 
 ```markdown
 | Skill名称 | 一句话意图 | 类型 | 必须通过场景(3-5) | 不该走这里(2-3) | 模糊区域 | 竞争skill |
