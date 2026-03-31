@@ -17,6 +17,7 @@
 | LLM 选择 | 模型供应商 + 模型名称 + 调用方式（SDK / HTTP） |
 | 输入类型 | 纯文本 / 文本+图片 / 文本+视频 / 混合 |
 | 输出类型 | 文本 / 图片 / 视频 / 混合 |
+| Skill 清单 | 让用户列出这个 Agent 需要的所有 skill（可以是初步想法，后续可调整） |
 
 ### Step 2: 定义 Skill 清单
 
@@ -28,7 +29,13 @@
 
 | Skill名称 | 一句话意图 | 类型 | 必须通过场景(3-5) | 不该走这里(2-3) | 模糊区域 | 竞争skill |
 |-----------|-----------|------|-------------------|----------------|---------|-----------|
-| 小写连字符命名 | 用户的一句话回答 | generate:image/video/clarify/search | AI 生成，用户确认 | AI 生成，用户确认 | AI 推断，用户补充 | AI 推断，用户确认 |
+| 小写连字符命名 | 用户的一句话回答（50-300 字符，含核心意图+边界条件） | skill 输出类型（可自定义） | AI 生成，用户确认 | AI 生成，用户确认 | AI 推断，用户补充 | AI 推断，用户确认 |
+
+**场景格式**：每个场景用一句模拟用户输入的自然语言表示，例如：
+- 必须通过：`"把这张照片的背景换成海滩"`
+- 不该走这里：`"帮我画一只猫"`
+
+这些场景将在路由质量调优中转化为 4-tuple 测试用例 `(case_id, asset_desc, user_text, expected_skill)`。
 
 4. **用户审阅修正**：用户对 AI 草稿逐项确认或修改，确认后锁定
 
@@ -105,6 +112,41 @@ skills/                         # Phase C 创建 SKILL.md
 | 7 | **Resource 数据结构** | C1, H2 | `{id:"R1-U1", type:"图片"|"视频", url, prompt, style, mode:"upload"|"generate", semantic_label, is_latest_result}` — type 字段使用中文 |
 | 8 | **SSE 事件类型** | I3 | `message_delta`/`done`、`stage_started`、`skill_loaded`、`generation_started`/`progress`、`loading_pulse`、`image_generated`/`video_generated`、`user_selection`/`upload_required`、`error`、`done`、`skill_loading_trace` |
 | 9 | **Prompt 模板变量** | C3, H4, H5 | planner: `{skill_catalog}` `{resource_summary}` `{memory_summary}`；replan: `{skill_content}` `{allowed_actions_table}` |
+
+**术语说明**（约束中的域特定概念）：
+- **respond hoisting**：执行循环中，将"回复用户"动作提前到"生成内容"之前，确保用户先收到文字反馈
+- **respond-before-generate 过滤**：replan 产出的动作序列中，如果 respond 排在 generate 后面，则交换顺序
+- **last_generate_ok 标志位**：记录上一次生成是否成功，用于决定是否需要 replan
+- **has_executable 检查**：验证 replan 产出的 plan 中至少有一个可执行动作，否则降级处理
+
+> **生成指导**：约束描述的是架构方向，不是完整规格。AI 生成代码时应：
+> 1. 每个文件先写类/函数签名和核心逻辑注释，展示给用户确认结构
+> 2. 用户确认后再填充实现细节
+> 3. 域特定概念（如 respond hoisting = 将 respond 动作提到 generate 之前执行；respond-before-generate 过滤 = replan 产出中如果 respond 在 generate 后面则交换顺序）由 AI 根据项目需求适配
+> 4. 不强求 1:1 复刻约束描述，允许按项目实际情况调整实现方式
+
+### Step 7.5: 建立测试基础设施
+
+为项目创建路由测试 runner，使后续 TDD 流程可执行：
+
+1. **测试文件**：`tests/routing_test.py`，包含：
+   - 测试函数接收 4-tuple `(case_id, asset_desc, user_text, expected_skill)`
+   - 调用 planner 获取路由结果
+   - 比较 `actual_skill == expected_skill`
+   - 输出格式：`PASS/FAIL case_id expected→actual`
+
+2. **测试命令**：记录到 `.routing-quality/config.md` 的 `test_command` 字段，例如：
+   ```bash
+   python -m pytest tests/routing_test.py -v
+   ```
+
+3. **成功标准**：
+   - 单个 case：`actual_skill == expected_skill`
+   - 整体：通过率 >= 目标阈值（95%+ golden cases）
+
+4. **3-run 多数决**：对每个 case 运行 3 次取多数结果，消除 LLM 随机性
+
+AI 生成测试 runner 代码骨架，用户确认后写入项目。
 
 ---
 
